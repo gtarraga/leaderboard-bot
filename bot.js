@@ -1,5 +1,6 @@
 const Discord = require('discord.js');
 const overwatch = require('overwatch-api');
+const owjs = require('overwatch-js');
 const fs = require('fs');
 const client = new Discord.Client({autoReconnect:true});
 const tokens = require('./tokens.json');
@@ -112,23 +113,24 @@ client.on('message', message => {
 		var limit;
 		leaderboardString = "";
 
-		overwatch.getProfile('pc', args[1], args[0].replace(/#/g, '-'), (json) => {
+		owjs.getAll('pc', args[1], args[0].replace(/#/g, '-')).then((data) => {
 			var profile = {
 				"id":message.author.id,
 				"flag": "",
 				"region": args[1],
 				"btag": args[0].replace(/#/g, '-'),
 				"overwatch": {
-					"username": json.username,
-					"rank": json.competitive.rank
+					"username": data.profile.nick,
+					"rank": data.profile.rank
 				}
 			}
+			console.log(data.profile);
 
-  			leaderboard.push(profile);
+			leaderboard.push(profile);
 			leaderboard.sort(function (a, b) {
 				return b.overwatch.rank - a.overwatch.rank;
 			});
-			console.log(leaderboard);
+			// console.log(leaderboard);
 
 			if(leaderboard.length < 100) limit = leaderboard.length;
 			else limit = 100;
@@ -152,26 +154,112 @@ client.on('message', message => {
 					console.log(err);
 				}
 			});
+
 		});
+
+		// overwatch.getProfile('pc', args[1], args[0].replace(/#/g, '-'), (json) => {
+		// 	var profile = {
+		// 		"id":message.author.id,
+		// 		"flag": "",
+		// 		"region": args[1],
+		// 		"btag": args[0].replace(/#/g, '-'),
+		// 		"overwatch": {
+		// 			"username": json.username,
+		// 			"rank": json.competitive.rank
+		// 		}
+		// 	}
+		//
+  		// 	leaderboard.push(profile);
+		// 	leaderboard.sort(function (a, b) {
+		// 		return b.overwatch.rank - a.overwatch.rank;
+		// 	});
+		// 	console.log(leaderboard);
+		//
+		// 	if(leaderboard.length < 100) limit = leaderboard.length;
+		// 	else limit = 100;
+		//
+		// 	for(let i = 0; i < limit; i++) {
+		//
+		// 		var user = message.guild.members.get(leaderboard[i].id);
+		//
+		//
+		// 		leaderboardString += pad(i+1) + ". **" + leaderboard[i].flag + " " + user.displayName + "** (*" + leaderboard[i].overwatch.username + "*) [" + leaderboard[i].overwatch.rank + "]\n";
+		// 	}
+		//
+		// 	message.channel.send({"embed": {
+    	// 		"title": "**LEADERBOARDS**",
+    	// 		"description": "\n" + leaderboardString,
+		// 		"color": 356976
+		// 	}});
+		//
+		// 	fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
+		// 		if(err){
+		// 			console.log(err);
+		// 		}
+		// 	});
+		// });
 	}
 
-	if(command === "update") updateLeaderboards(message);
+	if(command === "log") console.log(leaderboard);
+
+	if(command === "write") write(leaderboard);
+
+	if(command === "update") update(message);
+
+	if(command === "send") sendLeaderboard(message, leaderboard);
+	//if(command === "update") console.log(updateLeaderboards());
 });
 
-function updateLeaderboards(message) {
+
+
+
+function updateLeaderboards() {
 	leaderboard.forEach(function(user) {
-		overwatch.getProfile('pc', user.region, user.btag, (json) => {
+		owjs.getAll('pc', user.region, user.btag).then((data) => {
 			user["overwatch"] = {
-				"username": json.username,
-				"rank": json.competitive.rank
+				"username": data.profile.nick,
+				"rank": data.profile.rank
 			};
-			console.log(json.competitive.rank);
-		})
+			console.log(data.profile.rank);
+		});
+		// overwatch.getProfile('pc', user.region, user.btag, (json) => {
+		// 	user["overwatch"] = {
+		// 		"username": json.username,
+		// 		"rank": json.competitive.rank
+		// 	};
+		// 	console.log(json.competitive.rank);
+		// })
 	});
+
+	// leaderboard.sort(function (a, b) {
+	// 	return b.overwatch.rank - a.overwatch.rank;
+	// });
+	// return console.log(leaderboard);
+}
+
+async function update(message) {
+	await updateLeaderboards();
+	sendLeaderboard(message);
+	return write();
+
+	// updateLeaderboards(function() {
+	// 	console.log("updated leaderboard");
+	// 	sortRank(leaderboard, function() {
+	// 		console.log("sorted");
+	// 		sendLeaderboard(message, function() {
+	// 			write();
+	// 		})
+	// 	})
+	// });
+}
+
+function sortRank(leaderboard) {
 	leaderboard.sort(function (a, b) {
 		return b.overwatch.rank - a.overwatch.rank;
 	});
+}
 
+function sendLeaderboard(message) {
 	leaderboardString = "";
 
 	if(leaderboard.length < 100) limit = leaderboard.length;
@@ -190,8 +278,9 @@ function updateLeaderboards(message) {
 		"description": "\n" + leaderboardString,
 		"color": 356976
 	}});
+}
 
-
+function write() {
 	fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
 		if(err){
 			console.log(err);
@@ -201,8 +290,4 @@ function updateLeaderboards(message) {
 
 function pad(number) {
    return (number < 10 ? '0' : '') + number;
-}
-
-function sendLeaderboard(message) {
-
 }
