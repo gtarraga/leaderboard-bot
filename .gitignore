@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 
 leaderboard.json
+tokens.json
 
 # Runtime data
 pids

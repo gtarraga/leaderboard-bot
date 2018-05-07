@@ -107,33 +107,60 @@ client.on('message', message => {
 //
 
 	if (command === 'add') {
+		var limit;
+		var leaderboardString = "";
 
-		var profile = overwatch.getProfile('pc', 'eu', args[0].replace(/#/g, '-'), (json) => {
+		overwatch.getProfile('pc', 'eu', args[0].replace(/#/g, '-'), (json) => {
 
 			var profile = {
 				"id":message.author.id,
 				"flag": "",
-				"overwatch": json
+				"btag": args[0].replace(/#/g, '-'),
+				"overwatch": {
+					"username": json.username,
+					"rank": json.competitive.rank
+				}
 			}
+
   			leaderboard.push(profile);
 			console.log(profile);
 
 			leaderboard.sort(function (a, b) {
-				return b.overwatch.competitive.rank - a.overwatch.competitive.rank;
+				return b.overwatch.rank - a.overwatch.rank;
 			});
 
-			fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
-				if(err){
-					console.log(err);
-				}
-			});
+			if(leaderboard.length < 100) limit = leaderboard.length;
+			else limit = 100;
+
+			for(let i = 0; i < limit - 1; i++) {
+
+				var user = message.guild.members.get(leaderboard[i].id);
+
+
+				leaderboardString += pad(i+1) + ". **" + leaderboard[i].flag + " " + user.displayName + "** (*" + leaderboard[i].overwatch.username + "*) [" + leaderboard[i].overwatch.rank + "]\n";
+			}
+
+			message.channel.send({"embed": {
+    			"title": "**LEADERBOARDS**",
+    			"description": "\n" + leaderboardString,
+				"color": 356976
+			}});
+
+
 		});
 
 
 
-	}
-
-	if (command === 'flag') {
+		fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
+			if(err){
+				console.log(err);
+			}
+		});
 
 	}
 });
+
+
+function pad(number) {
+   return (number < 10 ? '0' : '') + number;
+}
