@@ -7,7 +7,9 @@ const tokens = require('./tokens.json');
 client.login(tokens.key);
 
 global.leaderboard;
+global.leaderboardString = "";
 global.mainMessageID = "";
+global.mainChannel
 
 fs.readFile('./leaderboard.json', 'utf8', function (err, data) {
 	if (err) {
@@ -22,14 +24,14 @@ fs.readFile('./leaderboard.json', 'utf8', function (err, data) {
 client.on('ready', () => {
 	//client.user.setUsername('The Black Knight');
 	console.log(`Logged in as ${client.user.tag}!`);
-	mainChannel = client.channels.find(n => n.name == "leaderboard");
-
-
-	mainChannel.fetchMessage(mainMessageID)
-	.then(message => {
-		mainMessage = message;
-	})
-	.catch(console.error());
+	// mainChannel = client.channels.find(n => n.id == "443052872729624579");
+	//
+	//
+	// mainChannel.fetchMessage(mainMessageID)
+	// .then(message => {
+	// 	mainMessage = message;
+	// })
+	// .catch(console.error());
 });
 
 const prefix = "!";
@@ -108,13 +110,13 @@ client.on('message', message => {
 
 	if (command === 'add') {
 		var limit;
-		var leaderboardString = "";
+		leaderboardString = "";
 
-		overwatch.getProfile('pc', 'eu', args[0].replace(/#/g, '-'), (json) => {
-
+		overwatch.getProfile('pc', args[1], args[0].replace(/#/g, '-'), (json) => {
 			var profile = {
 				"id":message.author.id,
 				"flag": "",
+				"region": args[1],
 				"btag": args[0].replace(/#/g, '-'),
 				"overwatch": {
 					"username": json.username,
@@ -123,16 +125,15 @@ client.on('message', message => {
 			}
 
   			leaderboard.push(profile);
-			console.log(profile);
-
 			leaderboard.sort(function (a, b) {
 				return b.overwatch.rank - a.overwatch.rank;
 			});
+			console.log(leaderboard);
 
 			if(leaderboard.length < 100) limit = leaderboard.length;
 			else limit = 100;
 
-			for(let i = 0; i < limit - 1; i++) {
+			for(let i = 0; i < limit; i++) {
 
 				var user = message.guild.members.get(leaderboard[i].id);
 
@@ -146,21 +147,62 @@ client.on('message', message => {
 				"color": 356976
 			}});
 
-
+			fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
+				if(err){
+					console.log(err);
+				}
+			});
 		});
-
-
-
-		fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
-			if(err){
-				console.log(err);
-			}
-		});
-
 	}
+
+	if(command === "update") updateLeaderboards(message);
 });
 
+function updateLeaderboards(message) {
+	leaderboard.forEach(function(user) {
+		overwatch.getProfile('pc', user.region, user.btag, (json) => {
+			user["overwatch"] = {
+				"username": json.username,
+				"rank": json.competitive.rank
+			};
+			console.log(json.competitive.rank);
+		})
+	});
+	leaderboard.sort(function (a, b) {
+		return b.overwatch.rank - a.overwatch.rank;
+	});
+
+	leaderboardString = "";
+
+	if(leaderboard.length < 100) limit = leaderboard.length;
+	else limit = 100;
+
+	for(let i = 0; i < limit; i++) {
+
+		var user = message.guild.members.get(leaderboard[i].id);
+
+
+		leaderboardString += pad(i+1) + ". **" + leaderboard[i].flag + " " + user.displayName + "** (*" + leaderboard[i].overwatch.username + "*) [" + leaderboard[i].overwatch.rank + "]\n";
+	}
+
+	message.channel.send({"embed": {
+		"title": "**LEADERBOARDS**",
+		"description": "\n" + leaderboardString,
+		"color": 356976
+	}});
+
+
+	fs.writeFile('leaderboard.json', JSON.stringify(leaderboard, null, 4), 'utf8', function(err){
+		if(err){
+			console.log(err);
+		}
+	});
+}
 
 function pad(number) {
    return (number < 10 ? '0' : '') + number;
+}
+
+function sendLeaderboard(message) {
+
 }
